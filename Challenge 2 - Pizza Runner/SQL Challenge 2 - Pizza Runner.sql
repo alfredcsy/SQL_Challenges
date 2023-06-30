@@ -622,3 +622,111 @@ order by order_id;
 
     
 -- 6.What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?
+with normal_order as (
+select distinct
+    co.order_id,
+    co.pizza_id,
+    pn.pizza_name,
+    lf.value::int as topping_int,
+    pt.topping_name 
+from customer_orders as co
+join runner_orders as ro on co.order_id = ro.order_id
+join pizza_recipes as pr on co.pizza_id = pr.pizza_id
+join pizza_names as pn on co.pizza_id = pn.pizza_id,
+lateral flatten(input => split (toppings,',')) as lf
+    join pizza_toppings as pt on topping_int = pt.topping_id
+ where ro.pickup_time != 'null'
+and  (length(co.exclusions)=0 or co.exclusions = 'null' or co.exclusions is null)
+    and (length(co.extras)=0 or co.extras = 'null' or co.extras is null)
+),
+order_with_exclude as (
+select
+    co.order_id,
+    co.pizza_id,
+    pn.pizza_name,
+    lf.value :: int as topping_int,
+    pt.topping_name
+from customer_orders as co
+join runner_orders as ro on co.order_id = ro.order_id
+join pizza_recipes as pr on co.pizza_id = pr.pizza_id
+join pizza_names as pn on co.pizza_id = pn.pizza_id,
+lateral flatten(input => split (toppings,',')) as lf
+join pizza_toppings as pt on topping_int = pt.topping_id
+where ro.pickup_time != 'null'
+    and (co.exclusions != '' and co.exclusions != 'null' and co.exclusions is not null)
+    and (co.extras = '' or co.extras = 'null' or co.extras is  null)
+    and topping_int != co.exclusions
+),
+order_with_extra as (
+select 
+    co.order_id,
+    co.pizza_id,
+    pn.pizza_name,
+    lf.value :: int as topping_int,
+    pr.toppings || ', ' || co.extras as topping_with_extras,
+    pt.topping_name
+from customer_orders as co
+join runner_orders as ro on co.order_id = ro.order_id
+join pizza_recipes as pr on co.pizza_id = pr.pizza_id
+join pizza_names as pn on co.pizza_id = pn.pizza_id,
+lateral flatten(input => split (topping_with_extras,',')) as lf
+join pizza_toppings as pt on topping_int = pt.topping_id
+where ro.pickup_time != 'null'
+    and (co.exclusions = '' or co.exclusions = 'null' or co.exclusions is null)
+    and (co.extras != '' and co.extras != 'null' and co.extras is not null)
+order by order_id, pizza_id
+),
+order_with_exclude_extra_lv1 as (
+select 
+    co.order_id,
+    co.pizza_id,
+    co.exclusions,
+    pr.toppings || ', ' || co.extras as topping_with_extras,
+    lf.value :: int as topping_int
+from customer_orders as co
+join runner_orders as ro on co.order_id = ro.order_id
+join pizza_recipes as pr on co.pizza_id = pr.pizza_id
+join pizza_names as pn on co.pizza_id = pn.pizza_id,
+lateral flatten (input=>split(topping_with_extras,',')) as lf
+where ro.pickup_time != 'null'
+    and (co.exclusions != '' and co.exclusions != 'null' and co.exclusions is not null)
+    and (co.extras != '' and co.extras != 'null' and co.extras is not null)
+),
+order_with_exclude_extra_lv2 as (
+select 
+    co.order_id,
+    co.pizza_id,
+    co.exclusions,
+    trim(s.value)
+from customer_orders as co
+join runner_orders as ro on co.order_id = ro.order_id
+left join lateral split_to_table(exclusions,',') as s
+where ro.pickup_time != 'null'
+    and (co.exclusions != '' and co.exclusions != 'null' and co.exclusions is not null)
+    and (co.extras != '' and co.extras != 'null' and co.extras is not null)
+),
+union_all as (
+select
+    topping_name,
+    count(order_id) as count
+from normal_order
+group by topping_name
+union
+select
+    topping_name,
+    count(order_id) as count
+from order_with_exclude
+group by topping_name
+union
+select
+    topping_name,
+    count(order_id) as count
+from order_with_extra
+group by topping_name
+)
+select 
+    topping_name,
+    count(count) as count
+from union_all
+group by topping_name
+order by count desc
