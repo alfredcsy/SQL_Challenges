@@ -30,33 +30,7 @@ from
     join menu as b on a.product_id = b.product_id
 group by
     customer_id;
--- Will's answer
-    WITH CTE AS (
-        SELECT
-            customer_id,
-            order_date,
-            product_name,
-            RANK() OVER(
-                PARTITION BY CUSTOMER_ID
-                ORDER BY
-                    order_date
-            ) as rnk,
-            ROW_NUMBER() OVER(
-                PARTITION BY customer_id
-                ORDER BY
-                    order_date ASC
-            ) as rn
-        FROM
-            SALES as S
-            INNER JOIN MENU as M on S.product_id = M.product_id
-    )
-SELECT
-    customer_id,
-    product_name
-FROM
-    CTE
-WHERE
-    rnk = 1;
+
 
 -- self test
 with CTE as (
@@ -175,20 +149,6 @@ from cte
 group by customer_id;
 
 
--- Will's answer
-SELECT 
-  customer_id, 
-  SUM(
-    CASE product_name 
-      WHEN 'sushi' THEN price * 10 * 2 
-      ELSE price * 10 
-    END
-  ) as points 
-FROM 
-  MENU as M 
-  INNER JOIN SALES as S ON S.product_id = M.product_id
-GROUP BY 
-  customer_id;
 
 
 -- 10. In the first week after a customer joins the program (including their join date) they earn 2x points on all items, not just sushi 
