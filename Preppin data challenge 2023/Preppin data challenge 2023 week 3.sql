@@ -39,14 +39,15 @@ from cte;
 -- Calculate the Variance to Target for each row (help)
 with target as(    
 select
-    *
+    *,
+    replace(quarters,'Q','') :: int as quarter_int
 from pd2023_wk03_targets
-UNPIVOT(target for quarter in (Q1,Q2,Q3,Q4))
+UNPIVOT(target for quarters in (Q1,Q2,Q3,Q4))
 ), transaction as (
 select
     case online_or_in_person
         when 1 then 'Online'
-        when 2 then 'In person'
+        when 2 then 'In-Person'
         end as online_or_in_person,
     quarter(to_date(split_part(transaction_date,' ',1),'DD/MM/YYYY')) as Quarter,
     sum(value) as value
@@ -56,10 +57,9 @@ group by online_or_in_person, quarter
 )
 select
     ta.online_or_in_person,
-    replace(ta.quarter,'Q','') :: int as quarter_new,
-    target,
+    ta.quarter_int
     value,
     value-target as variance
 from target as ta
     join transaction as tr on ta.online_or_in_person = tr.online_or_in_person
-        and quarter_new = tr.quarter
+        and ta.quarter_int = tr.quarter
