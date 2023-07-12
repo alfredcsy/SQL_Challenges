@@ -1,4 +1,4 @@
--- Preppin data challenge 2023 week 1
+-- Preppin data challenge week 1
 -- https://preppindata.blogspot.com/2023/01/2023-week-1-data-source-bank.html
 
 -- Split the Transaction Code to extract the letters at the start of the transaction code. These identify the bank who processes the transaction (help)
