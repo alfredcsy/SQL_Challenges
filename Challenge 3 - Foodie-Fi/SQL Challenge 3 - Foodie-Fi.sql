@@ -185,3 +185,20 @@ group by bins
 order by bins;
 
 -- How many customers downgraded from a pro monthly to a basic monthly plan in 2020?
+with cte as (
+select
+    lead(sub.plan_id) over (partition by customer_id order by start_date asc) as next_plan,
+    sub.customer_id,
+    sub.plan_id,
+    sub.start_date,
+    pl.plan_name
+from subscriptions as sub
+    join plans as pl on sub.plan_id = pl.plan_id
+where pl.plan_name in ('basic monthly','pro monthly')
+order by sub.customer_id, sub.start_date
+)
+select *
+from cte
+where next_plan < plan_id
+
+-- no instance as such
