@@ -1,6 +1,6 @@
--- SQL Challenge 4 https://8weeksqlchallenge.com/case-study-4/
+-- SQL Challenge 3 https://8weeksqlchallenge.com/case-study-4/
 
--- Part A
+-- Part A - Customer Nodes Exploration
 -- How many unique nodes are there on the Data Bank system?
 select count (node_id)
 from (
@@ -108,4 +108,67 @@ order by region_name
 )
 select *
 from cte2
-unpivot ("metric" for region in ("median", "80th percentile", "95th percentile"))
+unpivot ("metric" for region in ("median", "80th percentile", "95th percentile"));
+
+
+
+
+-- Part B - Customer Transactions
+-- What is the unique count and total amount for each transaction type?
+select
+    txn_type,
+    count(*) as unique_count,
+    sum(txn_amount) as total_amount
+from customer_transactions
+group by txn_type;
+
+
+--What is the average total historical deposit counts and amounts for all customers?
+with cte as (
+    select
+        customer_id,
+        count(*) as historical_count,
+        avg(txn_amount) as avg_amount
+    from customer_transactions
+    where txn_type = 'deposit'
+    group by customer_id
+)
+select
+    round(avg(historical_count),0) as avg_deposit_times,
+    round(avg(avg_amount),2) as avg_deposit_amount
+from cte;
+
+
+--For each month - how many Data Bank customers make more than 1 deposit and either 1 purchase or 1 withdrawal in a single month?
+with cte as (
+select
+    customer_id,
+    monthname(date_trunc("month",txn_date)) as month_name,
+    sum(
+        case txn_type
+        when 'deposit'
+        then 1
+        end
+        ) as deposit_count,
+    sum(
+        case
+        when txn_type != 'deposit'
+        then 1
+        end
+       ) as withdraw_or_purchase
+from customer_transactions
+group by 
+    customer_id, 
+    month_name
+having deposit_count > 1
+    and withdraw_or_purchase = 1
+)
+select 
+    month_name,
+    count(customer_id) as customer_count
+from cte
+group by month_name;
+
+
+--What is the closing balance for each customer at the end of the month?
+--What is the percentage of customers who increase their closing balance by more than 5%?
